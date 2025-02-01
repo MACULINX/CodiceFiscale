@@ -1,6 +1,6 @@
-const stati = '/csv/listaStati.csv';
-const comuni = '/csv/listaComuni.csv';
-const province = '/csv/listaProvince.csv';
+const stati = './csv/listaStati.csv';
+const comuni = './csv/listaComuni.csv';
+const province = './csv/listaProvince.csv';
 const form = "datiCF";
 
 
