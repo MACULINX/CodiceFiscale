@@ -1,25 +1,48 @@
 const stati = '/csv/listaStati.csv';
 const comuni = '/csv/listaComuni.csv';
 const province = '/csv/listaProvince.csv';
+const form = "datiCF";
+
+
 
 function datiCF() {
-    let nome = document.forms["datiCF"]["inputNome"].value.toUpperCase();
-    let cognome = document.forms["datiCF"]["inputCognome"].value.toUpperCase();
-    let data = document.forms["datiCF"]["inputData"].value;
-    let sesso = document.forms["datiCF"]["inputSesso"].value;
-    let stato = document.forms["datiCF"]["inputStato"].value;
-    let comune = document.forms["datiCF"]["inputComune"].value;
+    let nome = document.forms[form]["inputNome"].value == '' ? 'none' : document.forms[form]["inputNome"].value.toUpperCase();
+    let cognome = document.forms[form]["inputCognome"].value == '' ? 'none' : document.forms[form]["inputCognome"].value.toUpperCase();
+    let data = document.forms[form]["inputData"].value;
+    let sesso = document.forms[form]["inputSesso"].value;
+    let stato = document.forms[form]["inputStato"].value;
+    let comune = document.forms[form]["inputComune"].value;
 
-    var CF = puliziaNome(cognome) + puliziaNome(nome) + dataNascita(data, sesso) + stato;
-    CF += controlloNumerico(CF);
-    console.log(CF);
+    if(!(nome == 'none' 
+       || cognome == 'none' 
+       || data == 'none' 
+       || sesso == 'none' 
+       || stato == 'none' 
+       || (stato == 'n.d.' && comune == 'none'))){
+
+        var CF = puliziaNome(cognome, "c") + puliziaNome(nome, "n") + dataNascita(data, sesso);
+
+        if(stato != "n.d.")
+            CF += stato;
+        else
+            CF += comune;
+
+        CF += controlloNumerico(CF);
+
+        document.getElementById("risCodiceFiscale").innerHTML = "Il codice fiscale richiesto è: " + CF;
+        mostraModal("#codiceFiscale");
+    }else
+        mostraModal("#errore");
 }
 
-function puliziaNome(str) {
+function puliziaNome(str, option) {
 
-    var retVal = "";
-    var cons = str.replace(/[AEIOU]/g, '');
-    var voc = str.replace(/[^AEIOU]/g, '');
+    let retVal = "";
+    
+    let cons = str.replace(/[AEIOU $]/g, '');
+    let voc = str.replace(/[^AEIOU]/g, '');
+    if(option == "n" && cons.length >= 4)
+        cons = cons[0]+cons[2]+cons[3];
 
     retVal += cons + voc + "XXX";
 
@@ -38,14 +61,13 @@ function dataNascita(data, sesso) {
     if (sesso === "F")
         giorno += 40;
 
-
-    const retVal = anno.slice(2) + mesi[mese - 1] + giorno.toString().padStart(2, '0');
+    const retVal = anno.slice(2,4) + mesi[mese - 1] + giorno.toString().padStart(2, '0');
 
     return retVal;
 }
 
 function letturaCSV(str) {
-    var retVal;
+    let retVal;
     var xhr = new XMLHttpRequest();
     xhr.open('GET', str, false);
 
@@ -54,8 +76,7 @@ function letturaCSV(str) {
             var csvContent = xhr.responseText;
             const rows = csvContent.split('\n');
             const data = rows.map(row => row.split(';'));
-            console.log(data);
-            retVal = data;
+            retVal = data
         }
     };
 
@@ -78,7 +99,7 @@ function caricaComuni()
     letturaCSV(comuni).forEach(element => {
         if(element[0] == "Stato(S)/Territorio(T)")
             console.log("Caricamento comuni...")
-        else
+        else if(element[1] == document.getElementById("inputProvincia").value)
             document.getElementById("inputComune").innerHTML += '<option value="'+ element[0] +'">'+element[2]+'</option>'
     });
 }
@@ -95,24 +116,38 @@ function caricaProvince()
 }
 
 function controlloNumerico(codiceFiscale) {
-    const valori = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
-    const pesi = [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1];
-    
+    const tabellaDispari = {
+        A:1, B:0, C:5, D:7, E:9, F:13, G:15, H:17, I:19, J:21,
+        K:2, L:4, M:18, N:20, O:11, P:3, Q:6, R:8, S:12, T:14,
+        U:16, V:10, W:22, X:25, Y:24, Z:23,
+        0:1, 1:0, 2:5, 3:7, 4:9, 5:13, 6:15, 7:17, 8:19, 9:21
+    };
+
+    const tabellaPari = {
+        A:0, B:1, C:2, D:3, E:4, F:5, G:6, H:7, I:8, J:9,
+        K:10, L:11, M:12, N:13, O:14, P:15, Q:16, R:17, S:18, T:19,
+        U:20, V:21, W:22, X:23, Y:24, Z:25,
+        0:0, 1:1, 2:2, 3:3, 4:4, 5:5, 6:6, 7:7, 8:8, 9:9
+    };
+
+    const tabellaRestoLettera = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
     let somma = 0;
+
     for (let i = 0; i < codiceFiscale.length; i++) {
-      const carattere = codiceFiscale[i].toUpperCase();
-      let valore;
-  
-      if ('0' <= carattere && carattere <= '9') {
-        valore = parseInt(carattere, 10);
-      } else {
-        valore = carattere.charCodeAt(0) - 65 + 10;
-      }
-  
-      somma += valore * pesi[i % pesi.length];
+        let carattere = codiceFiscale[i];
+        if (i % 2 == 0) 
+            somma += tabellaDispari[carattere];
+        else
+            somma += tabellaPari[carattere];
     }
-    
-    const resto = somma % 26;
-    const cifraControllo = valori[resto];
-    return cifraControllo;
-  }
+
+    let resto = somma % 26;
+    return tabellaRestoLettera[resto];
+}
+
+function mostraModal(s)
+{
+    const modal = new bootstrap.Modal(s);
+    modal.show();
+}
